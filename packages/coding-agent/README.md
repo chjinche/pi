@@ -285,7 +285,7 @@ Use `/settings` to modify common options, or edit JSON files directly:
 | Location | Scope |
 |----------|-------|
 | `~/.pi/agent/settings.json` | Global (all projects) |
-| `.pi/settings.json` | Project (overrides global) |
+| `.pi/settings.json` | Project (overrides global, except global-only settings) |
 
 See [docs/settings.md](docs/settings.md) for all options.
 
@@ -662,6 +662,7 @@ pi --thinking high "Solve this complex problem"
 | `PI_OFFLINE` | Disable startup network operations, including update checks, package update checks, and install/update telemetry |
 | `PI_SKIP_VERSION_CHECK` | Skip the Pi version update check at startup. This prevents the `pi.dev` latest-version request |
 | `PI_TELEMETRY` | Override install/update telemetry and provider attribution headers. Use `1`/`true`/`yes` to enable or `0`/`false`/`no` to disable. This does not disable update checks |
+| `PI_EXPERIMENTAL` | Override `experimentalFeatures` for early features. Use `1`/`true`/`yes` to enable or `0`/`false`/`no` to disable |
 | `PI_CACHE_RETENTION` | Set to `long` for extended prompt cache (Anthropic: 1h, OpenAI: 24h) |
 | `VISUAL`, `EDITOR` | External editor for Ctrl+G |
 

@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added the global `experimentalFeatures` setting and `PI_EXPERIMENTAL` environment override for early feature flags.
 - Added a `project_trust` extension event so global and CLI extensions can decide or defer project trust during startup and runtime cwd switches.
 - Added project trust gating for project-local settings, resources, instructions, and packages ([#5332](https://github.com/earendil-works/pi/pull/5332)).
 - Added the latest prompt cache hit rate to the interactive footer.

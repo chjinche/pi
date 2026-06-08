@@ -9,8 +9,10 @@ describe("SettingsManager", () => {
 	const testDir = join(process.cwd(), "test-settings-tmp");
 	const agentDir = join(testDir, "agent");
 	const projectDir = join(testDir, "project");
+	const originalPiExperimental = process.env.PI_EXPERIMENTAL;
 
 	beforeEach(() => {
+		delete process.env.PI_EXPERIMENTAL;
 		// Clean up and create fresh directories
 		if (existsSync(testDir)) {
 			rmSync(testDir, { recursive: true });
@@ -20,6 +22,11 @@ describe("SettingsManager", () => {
 	});
 
 	afterEach(() => {
+		if (originalPiExperimental === undefined) {
+			delete process.env.PI_EXPERIMENTAL;
+		} else {
+			process.env.PI_EXPERIMENTAL = originalPiExperimental;
+		}
 		if (existsSync(testDir)) {
 			rmSync(testDir, { recursive: true });
 		}
@@ -249,6 +256,52 @@ describe("SettingsManager", () => {
 
 			expect(manager.getProjectSettings()).toEqual({});
 			expect(JSON.parse(readFileSync(projectSettingsPath, "utf-8"))).toEqual({ packages: ["npm:existing"] });
+		});
+	});
+
+	describe("experimentalFeatures", () => {
+		it("should default to false", () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+
+			expect(manager.getExperimentalFeaturesEnabled()).toBe(false);
+		});
+
+		it("should load the global setting", () => {
+			writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ experimentalFeatures: true }));
+			const manager = SettingsManager.create(projectDir, agentDir);
+
+			expect(manager.getExperimentalFeaturesEnabled()).toBe(true);
+		});
+
+		it("should ignore project settings", () => {
+			writeFileSync(join(projectDir, ".pi", "settings.json"), JSON.stringify({ experimentalFeatures: true }));
+			const manager = SettingsManager.create(projectDir, agentDir);
+
+			expect(manager.getExperimentalFeaturesEnabled()).toBe(false);
+		});
+
+		it("should let PI_EXPERIMENTAL enable experimental features", () => {
+			process.env.PI_EXPERIMENTAL = "1";
+			const manager = SettingsManager.create(projectDir, agentDir);
+
+			expect(manager.getExperimentalFeaturesEnabled()).toBe(true);
+		});
+
+		it("should let PI_EXPERIMENTAL override the global setting", () => {
+			process.env.PI_EXPERIMENTAL = "0";
+			writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ experimentalFeatures: true }));
+			const manager = SettingsManager.create(projectDir, agentDir);
+
+			expect(manager.getExperimentalFeaturesEnabled()).toBe(false);
+		});
+
+		it("should save to global settings", async () => {
+			const settingsPath = join(agentDir, "settings.json");
+			const manager = SettingsManager.create(projectDir, agentDir);
+			manager.setExperimentalFeaturesEnabled(true);
+			await manager.flush();
+
+			expect(JSON.parse(readFileSync(settingsPath, "utf-8")).experimentalFeatures).toBe(true);
 		});
 	});
 

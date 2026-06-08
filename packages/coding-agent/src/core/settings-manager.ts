@@ -93,6 +93,7 @@ export interface Settings {
 	npmCommand?: string[]; // Command used for npm package lookup/install operations, argv-style (e.g., ["mise", "exec", "node@20", "--", "npm"])
 	collapseChangelog?: boolean; // Show condensed changelog after update (use /changelog for full)
 	enableInstallTelemetry?: boolean; // default: true - anonymous version/update ping after changelog-detected updates
+	experimentalFeatures?: boolean; // default: false - global-only opt-in for early features; overridden by PI_EXPERIMENTAL
 	packages?: PackageSource[]; // Array of npm/git package sources (string or object with filtering)
 	extensions?: string[]; // Array of local extension file paths or directories
 	skills?: string[]; // Array of local skill file paths or directories
@@ -890,6 +891,21 @@ export class SettingsManager {
 	setEnableInstallTelemetry(enabled: boolean): void {
 		this.globalSettings.enableInstallTelemetry = enabled;
 		this.markModified("enableInstallTelemetry");
+		this.save();
+	}
+
+	getExperimentalFeaturesEnabled(): boolean {
+		const envValue = process.env.PI_EXPERIMENTAL;
+		if (envValue !== undefined) {
+			const normalized = envValue.toLowerCase();
+			return envValue === "1" || normalized === "true" || normalized === "yes";
+		}
+		return this.globalSettings.experimentalFeatures === true;
+	}
+
+	setExperimentalFeaturesEnabled(enabled: boolean): void {
+		this.globalSettings.experimentalFeatures = enabled;
+		this.markModified("experimentalFeatures");
 		this.save();
 	}
 

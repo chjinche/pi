@@ -1,6 +1,6 @@
 # Settings
 
-Pi uses JSON settings files with project settings overriding global settings.
+Pi uses JSON settings files with project settings overriding global settings unless a setting notes otherwise.
 
 | Location | Scope |
 |----------|-------|
@@ -63,6 +63,16 @@ Use `/trust` in interactive mode to save a project trust decision for future ses
 `enableInstallTelemetry` only controls the anonymous install/update ping to `https://pi.dev/api/report-install`. Opting out of telemetry does not disable update checks; Pi can still fetch `https://pi.dev/api/latest-version` to look for the latest version.
 
 Set `PI_SKIP_VERSION_CHECK=1` to disable the Pi version update check. Use `--offline` or `PI_OFFLINE=1` to disable all startup network operations described here, including update checks, package update checks, and install/update telemetry.
+
+### Experimental Features
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `experimentalFeatures` | boolean | `false` | Enable early features that may change or break |
+
+`experimentalFeatures` is global-only. Set it in `~/.pi/agent/settings.json`; `.pi/settings.json` is ignored for this setting. It is not shown in `/settings`.
+
+Set `PI_EXPERIMENTAL=1` (or `true`/`yes`) to enable experimental features for one process. If `PI_EXPERIMENTAL` is set, it overrides `experimentalFeatures`; use `0`, `false`, or `no` to force-disable.
 
 ### Warnings
 
@@ -269,7 +279,7 @@ See [packages.md](packages.md) for package management details.
 
 ## Project Overrides
 
-Project settings (`.pi/settings.json`) override global settings. Nested objects are merged:
+Project settings (`.pi/settings.json`) override global settings except for global-only settings such as `experimentalFeatures`. Nested objects are merged:
 
 ```json
 // ~/.pi/agent/settings.json (global)

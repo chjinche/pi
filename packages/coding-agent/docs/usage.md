@@ -288,6 +288,7 @@ pi --exclude-tools ask_question
 | `PI_OFFLINE` | Disable startup network operations, including update checks, package update checks, and install/update telemetry |
 | `PI_SKIP_VERSION_CHECK` | Skip the Pi version update check at startup. This prevents the `pi.dev` latest-version request |
 | `PI_TELEMETRY` | Override install/update telemetry and provider attribution headers: `1`/`true`/`yes` or `0`/`false`/`no`. This does not disable update checks |
+| `PI_EXPERIMENTAL` | Override `experimentalFeatures` for early features: `1`/`true`/`yes` or `0`/`false`/`no` |
 | `PI_CACHE_RETENTION` | Set to `long` for extended prompt cache where supported |
 | `VISUAL`, `EDITOR` | External editor for Ctrl+G |
 
