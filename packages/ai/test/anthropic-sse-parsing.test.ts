@@ -78,6 +78,11 @@ function createFakeAnthropicClient(response: Response): Anthropic {
 	} as unknown as Anthropic;
 }
 
+function encodeSseEvents(events: Array<{ event: string; data: string }>): Uint8Array {
+	const body = events.map(({ event, data }) => `event: ${event}\ndata: ${data}\n\n`).join("");
+	return new TextEncoder().encode(body);
+}
+
 describe("Anthropic raw SSE parsing", () => {
 	it("repairs malformed SSE JSON and malformed streamed tool JSON", async () => {
 		const model = getModel("anthropic", "claude-haiku-4-5");
@@ -185,5 +190,127 @@ describe("Anthropic raw SSE parsing", () => {
 		expect(result.stopReason).toBe("stop");
 		expect(result.errorMessage).toBeUndefined();
 		expect(result.content).toEqual([{ type: "text", text: "Hello" }]);
+	});
+
+	it("finalizes on message_stop without waiting for transport EOF", async () => {
+		const model = getModel("anthropic", "claude-haiku-4-5");
+		const context: Context = {
+			messages: [{ role: "user", content: "Use the edit tool.", timestamp: Date.now() }],
+			tools: [
+				{
+					name: "edit",
+					description: "Edit a file.",
+					parameters: Type.Object({
+						path: Type.String(),
+						text: Type.String(),
+					}),
+				},
+			],
+		};
+
+		let canceled = false;
+		const body = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(
+					encodeSseEvents([
+						{
+							event: "message_start",
+							data: JSON.stringify({
+								type: "message_start",
+								message: {
+									id: "msg_test",
+									usage: {
+										input_tokens: 12,
+										output_tokens: 0,
+										cache_read_input_tokens: 0,
+										cache_creation_input_tokens: 0,
+									},
+								},
+							}),
+						},
+						{
+							event: "content_block_start",
+							data: JSON.stringify({
+								type: "content_block_start",
+								index: 0,
+								content_block: {
+									type: "tool_use",
+									id: "toolu_test",
+									name: "edit",
+									input: {},
+								},
+							}),
+						},
+						{
+							event: "content_block_delta",
+							data: JSON.stringify({
+								type: "content_block_delta",
+								index: 0,
+								delta: {
+									type: "input_json_delta",
+									partial_json: '{"path":"README.md","text":"hi"}',
+								},
+							}),
+						},
+						{
+							event: "content_block_stop",
+							data: JSON.stringify({ type: "content_block_stop", index: 0 }),
+						},
+						{
+							event: "message_delta",
+							data: JSON.stringify({
+								type: "message_delta",
+								delta: { stop_reason: "tool_use" },
+								usage: {
+									input_tokens: 12,
+									output_tokens: 5,
+									cache_read_input_tokens: 0,
+									cache_creation_input_tokens: 0,
+								},
+							}),
+						},
+						{
+							event: "message_stop",
+							data: JSON.stringify({ type: "message_stop" }),
+						},
+					]),
+				);
+			},
+			cancel() {
+				canceled = true;
+			},
+		});
+
+		const stream = streamAnthropic(model, context, {
+			client: createFakeAnthropicClient(
+				new Response(body, {
+					status: 200,
+					headers: { "content-type": "text/event-stream" },
+				}),
+			),
+		});
+
+		const events = [];
+		for await (const event of stream) {
+			events.push(event.type);
+			if (event.type === "done" || event.type === "error") {
+				break;
+			}
+		}
+		const result = await stream.result();
+
+		expect(events).toContain("toolcall_start");
+		expect(events).toContain("toolcall_end");
+		expect(events).toContain("done");
+		expect(result.stopReason).toBe("toolUse");
+		expect(result.content).toEqual([
+			{
+				type: "toolCall",
+				id: "toolu_test",
+				name: "edit",
+				arguments: { path: "README.md", text: "hi" },
+			},
+		]);
+		expect(canceled).toBe(true);
 	});
 });

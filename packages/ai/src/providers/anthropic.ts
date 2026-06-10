@@ -353,6 +353,7 @@ async function* iterateSseMessages(
 	const decoder = new TextDecoder();
 	const state: SseDecoderState = { event: null, data: [], raw: [] };
 	let buffer = "";
+	let completedNaturally = false;
 
 	try {
 		while (true) {
@@ -362,6 +363,7 @@ async function* iterateSseMessages(
 
 			const { value, done } = await reader.read();
 			if (done) {
+				completedNaturally = true;
 				break;
 			}
 
@@ -400,6 +402,13 @@ async function* iterateSseMessages(
 			yield trailingEvent;
 		}
 	} finally {
+		if (!completedNaturally) {
+			try {
+				await reader.cancel();
+			} catch {
+				// Ignore cleanup errors while closing an abandoned response body.
+			}
+		}
 		reader.releaseLock();
 	}
 }
@@ -432,6 +441,9 @@ async function* iterateAnthropicEvents(
 				sawMessageEnd = true;
 			}
 			yield event;
+			if (event.type === "message_stop") {
+				return;
+			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			throw new Error(
