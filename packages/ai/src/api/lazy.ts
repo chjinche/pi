@@ -1,6 +1,30 @@
 import type { Api, AssistantMessage, AssistantMessageEvent, Model, ProviderStreams } from "../types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 
+const MAX_SETUP_ERROR_CAUSE_DEPTH = 8;
+const MAX_SETUP_ERROR_CAUSE_SUMMARY_CHARS = 200;
+
+function formatSetupError(error: unknown): string {
+	if (!(error instanceof Error)) return String(error);
+
+	const parts = [error.message || error.name];
+	const seen = new Set<Error>([error]);
+	let current = error.cause;
+	let depth = 0;
+	while (current instanceof Error && !seen.has(current) && depth < MAX_SETUP_ERROR_CAUSE_DEPTH) {
+		seen.add(current);
+		depth++;
+		const firstLine = current.message.split(/\r?\n/, 1)[0]?.trim() ?? "";
+		const htmlBodyStart = firstLine.search(/<(?:!doctype|html)\b/i);
+		const summary = (htmlBodyStart >= 0 ? firstLine.slice(0, htmlBodyStart).replace(/[:\s]+$/, "") : firstLine)
+			.trim()
+			.slice(0, MAX_SETUP_ERROR_CAUSE_SUMMARY_CHARS);
+		if (summary && summary !== parts.at(-1)) parts.push(summary);
+		current = current.cause;
+	}
+	return parts.join(": ");
+}
+
 function createSetupErrorMessage(model: Model<Api>, error: unknown): AssistantMessage {
 	return {
 		role: "assistant",
@@ -17,7 +41,7 @@ function createSetupErrorMessage(model: Model<Api>, error: unknown): AssistantMe
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 		},
 		stopReason: "error",
-		errorMessage: error instanceof Error ? error.message : String(error),
+		errorMessage: formatSetupError(error),
 		timestamp: Date.now(),
 	};
 }
